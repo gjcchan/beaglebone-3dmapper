@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<script src="three.min.js"></script>
+		<script src="orbitcontrol.js"></script>
+		<script src="Detector.js"></script>
+		<script src="jquery.min.js"></script>
+		<script src="socket.io.js"></script>
+	</head>
+<body>
+	<div id="startbutton" style="position:absolute; width:80px; height:40px; top:10px; left:10px;background-color:white;">Start</div>
+	<div id="panoramic" style="position:absolute; width:80px; height:40px; top:10px; left:100px;background-color:white;"></div>
+</body>
+	<script>
+		var container, stats;
+
+		var cross;
+		var test;
+		var wsURL = "ws://"+window.location.hostname+":8100";
+		var socket = io(wsURL);
+		socket.on("go", function(data) {
+			test = JSON.parse(data);
+			 parse();
+		});
+
+		$("#startbutton").on('click', function() {
+			socket.emit('go');
+		});
+
+
+	    var scene = new THREE.Scene();
+	    var renderer = new THREE.WebGLRenderer();
+	    renderer.setSize(window.innerWidth, window.innerHeight);
+	    document.body.appendChild(renderer.domElement);
+	    var camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 500);
+	    camera.position.set(0, -90, 100);
+	    camera.lookAt(new THREE.Vector3(0, 0, 0));
+	    var controls = new THREE.OrbitControls( camera, renderer.domElement );
+		controls.enableDamping = true;
+		controls.dampingFactor = 0.25;
+		controls.enableZoom = false;  
+		
+
+		function parse() {
+		    var material = new THREE.LineBasicMaterial({
+		        color: 0x0fffff
+		    });
+	        var geometry = new THREE.Geometry();
+	        var nextLine = 0;
+	        var sorted = new Array();
+	        var sortedSize = 0;
+	        sorted[sortedSize] = new Array();
+	        for(i = 0; i < test["points"].length; i++) {
+	        	sorted[sortedSize].push(test["points"][i]);
+	        	if(i < test["points"].length-1 && test["points"][i].y != test["points"][i+1].y) {
+	        		nextLine = i;
+	        		sortedSize++;
+	        		sorted[sortedSize] = new Array();
+	        	}
+	        }
+
+
+		    var line = new THREE.Line(geometry, material);
+			scene.add(line);
+	 		for(x = 0; x < sorted.length-1; x++) {
+		 		for(i = 0; i < sorted[0].length-1; i++) {
+		 			var geometry = new THREE.Geometry();
+					geometry.vertices.push(new THREE.Vector3( sorted[x][i].x, sorted[x][i].z, sorted[x][i].y ));
+					geometry.vertices.push(new THREE.Vector3( sorted[x+1][i].x, sorted[x+1][i].z, sorted[x+1][i].y ));
+					geometry.vertices.push(new THREE.Vector3( sorted[x+1][i+1].x, sorted[x+1][i+1].z, sorted[x+1][i+1].y ));
+					geometry.vertices.push(new THREE.Vector3( sorted[x][i].x, sorted[x][i].z, sorted[x][i].y ));
+	        		var line = new THREE.Line(geometry, material);
+	        		scene.add(line);
+					geometry.vertices.push(new THREE.Vector3( sorted[x+1][i+1].x, sorted[x+1][i+1].z, sorted[x+1][i+1].y ));
+					geometry.vertices.push(new THREE.Vector3( sorted[x][i+1].x, sorted[x][i+1].z, sorted[x][i+1].y ));
+					geometry.vertices.push(new THREE.Vector3( sorted[x][i].x, sorted[x][i].z, sorted[x][i].y ));
+					geometry.vertices.push(new THREE.Vector3( sorted[x+1][i+1].x, sorted[x+1][i+1].z, sorted[x+1][i+1].y ));
+	        		var line = new THREE.Line(geometry, material);
+	        		scene.add(line);
+		 		}
+	 		}
+	 		$('#panoramic').html('<a href=\"http://' + window.location.hostname+':8100/scene.png\"> Click here for panoramic picture </a>');
+		};
+
+		
+		var render = function () {
+		  requestAnimationFrame( render );
+		  controls.update();
+		  renderer.render( scene, camera );
+		};
+		render();
+
+	</script>
+</html>
